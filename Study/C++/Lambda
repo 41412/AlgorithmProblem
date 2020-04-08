@@ -1,0 +1,107 @@
+[C++] Lambda Function
+
+- 자료 참고 : https://modoocode.com/196
+(http://ciere.com/cppnow12/lambda.pdf 의 자료를 바탕으로 만들어졌다고 한다.)
+
+
+1. 구성 요소
+
+[cap] (int param) ->int { }
+
+- [cap] : 개시자(Introducer capture).
+			안에 어떤 외부 변수를 넣어주면 이 변수를 람다 함수 안에서 사용할 수 있게 된다.
+			(1) 형태
+			- [&] : 외부의 '모든' 변수들을 'Reference' 형태로 가지고 온다. (Call by Reference)
+			- [=] : 외부의 '모든' 변수들을 'Value' 형태로 가지고 온다. (Call by Value)
+			- [=, &x, &y] : 외부의 변수들을 'Value' 로 가지고 오되, x와 y는 'Reference' 로 가지고 온다.
+			- [&, x, y] : 외부의 변수들을 'Reference' 로 가지고 오되, x와 y는 'Value' 로 가지고 온다.
+			- [x, &y] : 지정한 변수들을 지정한 형태로 가지고 온다.
+			
+			(2) 특징
+			- 'Value' 형태로 가지고 온 값은 람다 함수가 처음 정의될 시점에 들어있던 값이다.
+			- 'Value' 형태로 가지고 온 값들은 자동으로 const 속성이 붙게 되어 그 값을 변경할 수 없다.
+			- 만약 내부에서 'Value' 형태로 가지고 온 값들을 변경하고 싶다면(어짜피 외부의 것은 바뀌지 않는다.) mutable 속성을 준다.
+			ex) [=]() mutable ->int {
+					i *= 2;
+					return i;
+				};
+			- 클래스 또는 구조체 안에서 정의한 람다 함수는 자신이 속한 클래스 또는 구조체를 가리키는 'this'를 암묵적으로 캡쳐하게 된다.
+			ex) struct foo {
+				  foo() : i(0) {}
+				  void amazing() {
+					[=] { i = 8; }();
+				  }
+				  int i;
+				};
+				
+				겉보기에는 mutable 속성이 없어서 i의 값을 8로 바꾸는 것이 에러가 날 것 처럼 보이지만,
+				실제로는 this.i = 8; 과 같은 것이다.
+				const 속성인 this 가 바뀐 것은 아니므로 위 구문은 정상적으로 동작하게 된다.
+				
+			- 캡처되는 개체들은 람다 함수가 정의된 위치에서 접근이 가능한 것들이어야 한다.
+			ex) int i = 8;
+					auto f = [i]() {
+					  int j = 2;
+					  auto m = [=] { cout << i / j; };
+					  m();
+					};
+					f();
+					
+					f 내부에서 정의된 m에서 가장 바깥에서 선언된 i가 접근이 가능하다.
+					이는 f에서 i를 캡처한 상태고 m은 i가 접근이 가능한 f 내에서 정의된 것이므로 마찬가지로 m에서도 i가 접근가능한 것이다.
+					
+- (int param) : 인자(파라미터)를 받는 곳이다. 일반적인 함수의 정의처럼 void function(int param)과 같은 느낌으로 사용하면 된다.
+
+- ->int : 람다 함수의 리턴 타입을 명시한다. 여기서는 int형으로 리턴하도록 한 것이다.
+
+- { } : 람다 함수의 body 부분이다.
+
+
+2. 클로저(closure) 객체
+
+- 람다 함수가 정의되면 메모리에 임시적으로 존재하는 '클로저 객체'가 생성된다. 함수 객체처럼 행동하게 된다.
+
+- 클로저 객체는 암묵적으로 정의된 복사 생성자(copy constructure)와 소멸자(destructor)를 가진다.
+	만약 람다 함수가 정의될 때 Value 로 전달하는 개체들이 있다면 이들의 복사 생성이 일어날 것이다. Reference 로 전달하는 것만 있을 때는 호출되지 않을 것이다.
+	
+	
+3. 람다의 저장 및 전달
+
+(1) auto f = [](){ cout << "lambda" << endl; };
+
+하나의 type 으로 취급하므로 auto type의 변수에 저장할 수 있다.
+
+(2) template
+
+이 또한 하나의 type으로 취급하므로 템플릿을 사용할 수 있다.
+
+template <typename T>
+void fill(vector<int>& v, T done) {
+  int i = 0;
+  while (!done()) {
+    v.push_back(i++);
+  }
+}
+
+vector<int> stuff;
+
+fill(stuff, [&]() -> bool {
+  int sum = 0;
+  for_each(stuff.begin(), stuff.end(), [&](int i) { sum += i; });
+  return sum >= 10;
+});
+for_each(stuff.begin(), stuff.end(), [](int i) { cout << i << " "; });
+
+(3) 함수 포인터
+
+typedef int (*f_type)(int);
+f_type f = [](int i) -> int { return i + 20; };
+
+이 방법은 람다 함수가 캡처하는 것이 없어야 가능하다.
+
+(4) std::function
+
+std::function<return type(parameter)> 형태로 쓴다. 함수 포인터와 다르게 캡처하는 것이 있는 람다 함수도 가능하다.
+
+std::function<int(std::string const &)> f;
+f = [](std::string const &s) -> int { return s.size(); };
